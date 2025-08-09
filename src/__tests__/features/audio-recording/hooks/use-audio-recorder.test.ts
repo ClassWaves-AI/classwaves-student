@@ -2,11 +2,14 @@ import { renderHook, act } from '@testing-library/react';
 import { useAudioRecorder } from '@/features/audio-recording/hooks/use-audio-recorder';
 
 // Mock MediaRecorder
+type DataAvailableHandler = (event: { data: Blob }) => void;
+type ErrorHandler = (error: Error) => void;
+
 class MockMediaRecorder {
   state: RecordingState = 'inactive';
-  ondataavailable: ((event: any) => void) | null = null;
+  ondataavailable: DataAvailableHandler | null = null;
   onstop: (() => void) | null = null;
-  onerror: ((error: any) => void) | null = null;
+  onerror: ErrorHandler | null = null;
 
   constructor(public stream: MediaStream, public options?: MediaRecorderOptions) {}
 
@@ -41,9 +44,11 @@ const mockGetUserMedia = jest.fn();
 
 beforeAll(() => {
   global.MediaRecorder = MockMediaRecorder as any;
-  global.navigator.mediaDevices = {
-    getUserMedia: mockGetUserMedia,
-  } as any;
+  // Avoid reassigning the mediaDevices object which is read-only in some environments
+  // @ts-expect-error - test environment shim
+  if (!global.navigator.mediaDevices) global.navigator.mediaDevices = {};
+  // assign mock getUserMedia
+  (global.navigator.mediaDevices as any).getUserMedia = mockGetUserMedia;
 });
 
 describe('useAudioRecorder', () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Mic, MicOff, Users, Wifi, WifiOff, Loader2, LogOut } from 'lucide-react'
 import { useStudentStore } from '@/stores/student-store' // This store may need simplification as well
@@ -17,19 +17,18 @@ export default function SessionPage({ params }: SessionPageProps) {
   const [isOnline, setIsOnline] = useState(true)
   const { student, session, group, logout } = useStudentStore()
 
-  // WebSocket connection for the session
-  const { isConnected, error: wsError } = useWebSocket({ sessionId: params.sessionId });
+  // WebSocket connection for the session (student hook manages session join from store)
+  const { isConnected } = useWebSocket();
 
   // Refactored audio handler to stream via WebSocket
   const handleAudioChunk = useCallback((blob: Blob) => {
     if (!isConnected || !group) return;
     // Send raw audio blob over the websocket for the group
-    wsService.sendGroupAudio(group.id, blob);
+    wsService.sendGroupAudio(group.id, blob, 'audio/webm;codecs=opus');
   }, [isConnected, group]);
 
   const {
     isRecording,
-    audioLevel,
     error: audioError,
     startRecording,
     stopRecording,
@@ -40,9 +39,14 @@ export default function SessionPage({ params }: SessionPageProps) {
 
   const toggleRecording = () => {
     if (session?.status !== 'active') return;
+    if (!group) return;
     if (isRecording) {
+      // End stream lifecycle and stop recorder
+      wsService.endAudioStream(group.id);
       stopRecording();
     } else {
+      // Start stream lifecycle before recording
+      wsService.startAudioStream(group.id);
       startRecording();
     }
   };
@@ -89,7 +93,7 @@ export default function SessionPage({ params }: SessionPageProps) {
           <div>
             <h1 className="text-lg font-medium text-gray-900">{session?.title}</h1>
             <p className="text-sm text-gray-600">
-              Group: <span className="font-semibold">{group.name}</span>
+              Session: <span className="font-mono">{params.sessionId}</span> • Group: <span className="font-semibold">{group.name}</span>
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -135,8 +139,7 @@ export default function SessionPage({ params }: SessionPageProps) {
         {/* Status Text */}
         <div className="mt-8 h-10">
           {audioError && <p className="text-red-600 font-medium">{audioError}</p>}
-          {wsError && <p className="text-red-600 font-medium">{wsError}</p>}
-          {!audioError && !wsError && (
+          {!audioError && (
              <>
               {session?.status === 'active' && isRecording && (
                 <p className="text-green-600 font-medium">Recording audio for the group...</p>

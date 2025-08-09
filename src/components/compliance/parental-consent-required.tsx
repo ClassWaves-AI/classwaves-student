@@ -5,13 +5,11 @@ import { Mail, Shield } from 'lucide-react';
 
 interface ParentalConsentRequiredProps {
   studentName: string;
-  parentEmail?: string;
   onCancel: () => void;
 }
 
 export function ParentalConsentRequired({
   studentName,
-  parentEmail,
   onCancel
 }: ParentalConsentRequiredProps) {
   return (
@@ -24,7 +22,7 @@ export function ParentalConsentRequired({
             </div>
             <h2 className="text-2xl font-bold text-gray-900">Parent Permission Needed</h2>
             <p className="text-gray-600 mt-2">
-              Hi {studentName}! Because you're under 13, we need your parent or guardian's permission first.
+              Hi {studentName}! Because you&apos;re under 13, we need your parent or guardian&apos;s permission first.
             </p>
           </div>
 
@@ -37,7 +35,7 @@ export function ParentalConsentRequired({
                 </p>
                 <ul className="text-yellow-700 space-y-1">
                   <li>• Your teacher will contact your parent</li>
-                  <li>• They'll get an email to give permission</li>
+                  <li>• They&apos;ll get an email to give permission</li>
                   <li>• Once approved, you can join the class!</li>
                 </ul>
               </div>
@@ -47,7 +45,7 @@ export function ParentalConsentRequired({
           <div className="bg-blue-50 rounded-lg p-4">
             <h3 className="font-semibold text-blue-900 mb-2 text-sm">Why do we need permission?</h3>
             <p className="text-xs text-blue-800">
-              It's a law called COPPA that helps keep kids safe online. We take your privacy very seriously!
+              It&apos;s a law called COPPA that helps keep kids safe online. We take your privacy very seriously!
             </p>
           </div>
 

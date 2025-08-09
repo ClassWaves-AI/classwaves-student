@@ -11,7 +11,6 @@ interface AgeVerificationModalProps {
 }
 
 export function AgeVerificationModal({
-  sessionId,
   studentName,
   onVerified,
   onCancel

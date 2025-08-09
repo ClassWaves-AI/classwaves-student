@@ -72,7 +72,7 @@ export default function OfflinePage() {
               <Upload className="mx-auto h-12 w-12 text-gray-400" />
               <p className="mt-2 text-gray-600">No pending uploads</p>
               <p className="mt-1 text-sm text-gray-500">
-                Recordings will appear here when you're offline
+                Recordings will appear here when you&apos;re offline
               </p>
             </div>
           ) : (
@@ -108,7 +108,7 @@ export default function OfflinePage() {
                   <div className="flex gap-2">
                     <AlertCircle className="h-5 w-5 flex-shrink-0 text-yellow-600" />
                     <p className="text-sm text-yellow-700">
-                      Recordings will upload automatically when you're back online
+                      Recordings will upload automatically when you&apos;re back online
                     </p>
                   </div>
                 </div>

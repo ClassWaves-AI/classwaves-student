@@ -1,7 +1,53 @@
 {
-  "extends": "next/core-web-vitals",
+  "root": true,
+  "extends": [
+    "next/core-web-vitals",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint", "import"],
   "rules": {
     "@typescript-eslint/no-unused-vars": "warn",
-    "@typescript-eslint/no-explicit-any": "warn"
-  }
+    "@typescript-eslint/no-explicit-any": "warn",
+    "import/no-restricted-paths": [
+      "error",
+      {
+        "zones": [
+          {
+            "target": "./src/features/audio-recording",
+            "from": "./src/features",
+            "except": ["./audio-recording"]
+          },
+          {
+            "target": "./src/features/offline-sync",
+            "from": "./src/features",
+            "except": ["./offline-sync"]
+          },
+          {
+            "target": "./src/features/session-joining",
+            "from": "./src/features",
+            "except": ["./session-joining"]
+          },
+          {
+            "target": "./src/features/kiosk",
+            "from": "./src/features",
+            "except": ["./kiosk"]
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/features/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["@/app/*"]
+          }
+        ]
+      }
+    }
+  ]
 }

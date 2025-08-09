@@ -1,35 +1,57 @@
 import { io, Socket } from 'socket.io-client';
 
+export interface SessionStatusChangedData {
+  status: string;
+  sessionId: string;
+}
+
+export interface GroupJoinedData {
+  groupId: string;
+  sessionId: string;
+  groupInfo?: { name?: string };
+  groupName?: string;
+}
+
+export interface GroupTranscriptionData {
+  id: string;
+  groupId: string;
+  groupName: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface GroupInsightData {
+  groupId: string;
+  insightType:
+    | 'argumentation_quality'
+    | 'collaboration_patterns'
+    | 'conceptual_understanding'
+    | 'topical_focus';
+  message: string;
+  severity: 'info' | 'warning' | 'success';
+  timestamp: string;
+}
+
 interface GroupWebSocketEvents {
   // Connection
   onConnect?: () => void;
   onDisconnect?: (reason: string) => void;
-  onError?: (error: any) => void;
+  onError?: (error: unknown) => void;
   
   // Session events
-  onSessionStatusChanged?: (data: { status: string; sessionId: string }) => void;
+  onSessionJoined?: (data: { sessionId: string; status?: string }) => void;
+  onSessionStatusChanged?: (data: SessionStatusChangedData) => void;
   
   // Group kiosk events
+  onGroupJoined?: (data: GroupJoinedData) => void;
   onGroupReady?: (data: { groupId: string; sessionId: string }) => void;
   onGroupRecording?: (data: { groupId: string; isRecording: boolean }) => void;
   onGroupStatusChanged?: (data: { groupId: string; status: 'waiting' | 'ready' | 'recording' | 'error' }) => void;
   
   // Real-time updates (group-focused)
-  onGroupTranscriptionReceived?: (data: { 
-    id: string;
-    groupId: string;
-    groupName: string;
-    text: string;
-    timestamp: string;
-  }) => void;
+  onGroupTranscriptionReceived?: (data: GroupTranscriptionData) => void;
   
-  onGroupInsightReceived?: (data: {
-    groupId: string;
-    insightType: 'argumentation_quality' | 'collaboration_patterns' | 'conceptual_understanding' | 'topical_focus';
-    message: string;
-    severity: 'info' | 'warning' | 'success';
-    timestamp: string;
-  }) => void;
+  onGroupInsightReceived?: (data: GroupInsightData) => void;
 
   // Audio streaming events
   onAudioStreamStart?: (data: { groupId: string }) => void;
@@ -82,7 +104,7 @@ class GroupKioskWebSocketService {
       this.events.onDisconnect?.(reason);
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', (error: Error) => {
       console.error('WebSocket connection error:', error.message);
       this.reconnectAttempts++;
       
@@ -94,62 +116,84 @@ class GroupKioskWebSocketService {
       }
     });
 
-    this.socket.on('error', (error) => {
+    this.socket.on('error', (error: unknown) => {
       console.error('WebSocket error:', error);
       this.events.onError?.(error);
     });
 
     // Session events
-    this.socket.on('session:status_changed', (data) => {
+    this.socket.on('session:status_changed', (data: SessionStatusChangedData) => {
       console.log('Session status changed:', data);
       this.events.onSessionStatusChanged?.(data);
     });
 
     // Group kiosk events
-    this.socket.on('group:ready', (data) => {
+    this.socket.on('group:joined', (data: GroupJoinedData) => {
+      console.log('Group joined:', data);
+      this.events.onGroupJoined?.(data);
+    });
+
+    this.socket.on('group:ready', (data: { groupId: string; sessionId: string }) => {
       console.log('Group ready:', data);
       this.events.onGroupReady?.(data);
     });
 
-    this.socket.on('group:recording', (data) => {
+    this.socket.on('group:recording', (data: { groupId: string; isRecording: boolean }) => {
       console.log('Group recording status:', data);
       this.events.onGroupRecording?.(data);
     });
 
-    this.socket.on('group:status_changed', (data) => {
+    this.socket.on('group:status_changed', (data: { groupId: string; status: 'waiting' | 'ready' | 'recording' | 'error' }) => {
       console.log('Group status changed:', data);
       this.events.onGroupStatusChanged?.(data);
     });
 
     // Real-time group content
-    this.socket.on('transcription:group:new', (data) => {
+    this.socket.on('transcription:group:new', (data: GroupTranscriptionData) => {
       console.log('Group transcription received:', data);
       this.events.onGroupTranscriptionReceived?.(data);
     });
 
-    this.socket.on('insight:group:new', (data) => {
+    this.socket.on('insight:group:new', (data: GroupInsightData) => {
       console.log('Group insight received:', data);
       this.events.onGroupInsightReceived?.(data);
     });
 
     // Audio streaming events
-    this.socket.on('audio:stream:start', (data) => {
+    this.socket.on('audio:stream:start', (data: { groupId: string }) => {
       console.log('Audio stream started:', data);
       this.events.onAudioStreamStart?.(data);
     });
 
-    this.socket.on('audio:stream:end', (data) => {
+    this.socket.on('audio:stream:end', (data: { groupId: string }) => {
       console.log('Audio stream ended:', data);
       this.events.onAudioStreamEnd?.(data);
     });
 
-    this.socket.on('audio:error', (data) => {
+    this.socket.on('audio:error', (data: { groupId: string; error: string }) => {
       console.log('Audio error:', data);
       this.events.onAudioError?.(data);
     });
   }
 
   // Group kiosk emitters
+  joinSession(sessionId: string) {
+    if (!this.socket?.connected) {
+      console.error('WebSocket not connected');
+      return;
+    }
+    this.socket.emit('session:join', { sessionId });
+    this.events.onSessionJoined?.({ sessionId });
+  }
+
+  leaveSession(sessionId: string) {
+    if (!this.socket?.connected) {
+      console.error('WebSocket not connected');
+      return;
+    }
+    this.socket.emit('session:leave', { sessionId });
+  }
+
   joinGroupSession(groupId: string, sessionId: string) {
     if (!this.socket?.connected) {
       console.error('WebSocket not connected');
@@ -175,20 +219,25 @@ class GroupKioskWebSocketService {
   }
 
   // Audio streaming emitters
-  startAudioStream(groupId: string, format: string = 'webm') {
+  startAudioStream(groupId: string) {
     if (!this.socket?.connected) {
       console.error('WebSocket not connected');
       return;
     }
-    this.socket.emit('audio:stream:start', { groupId, format });
+    this.socket.emit('audio:stream:start', { groupId });
   }
 
-  sendAudioChunk(groupId: string, audioData: ArrayBuffer) {
+  sendAudioChunk(groupId: string, audioData: ArrayBuffer, mimeType: string = 'audio/webm;codecs=opus') {
     if (!this.socket?.connected) {
       console.error('WebSocket not connected');
       return;
     }
-    this.socket.emit('audio:chunk', { groupId, data: audioData });
+    this.socket.emit('audio:chunk', { 
+      groupId, 
+      audioData, 
+      format: mimeType,
+      timestamp: Date.now()
+    });
   }
 
   endAudioStream(groupId: string) {
@@ -197,6 +246,22 @@ class GroupKioskWebSocketService {
       return;
     }
     this.socket.emit('audio:stream:end', { groupId });
+  }
+
+  async sendGroupAudio(groupId: string, blob: Blob, mimeType: string = 'audio/webm;codecs=opus') {
+    const arrayBuffer = await blob.arrayBuffer();
+    this.sendAudioChunk(groupId, arrayBuffer, mimeType);
+  }
+
+  // Stubs to satisfy hook API
+  updateMuteStatus(isMuted: boolean) {
+    void isMuted;
+  }
+  startSpeaking() {
+    // no-op for now
+  }
+  stopSpeaking() {
+    // no-op for now
   }
 
   disconnect() {
@@ -213,3 +278,6 @@ class GroupKioskWebSocketService {
 
 // Export singleton instance
 export const groupKioskWebSocket = new GroupKioskWebSocketService();
+// Aliases for compatibility with hooks/pages
+export const wsService = groupKioskWebSocket;
+export const websocketService = groupKioskWebSocket;

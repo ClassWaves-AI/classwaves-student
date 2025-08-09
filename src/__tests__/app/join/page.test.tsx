@@ -1,9 +1,9 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/navigation';
 import JoinPage from '@/app/join/[sessionId]/page';
-import { studentApi } from '@/lib/api-client';
+import { joinSession } from '@/features/session-joining/api/join-session';
 import { useStudentStore } from '@/stores/student-store';
 
 // Mock dependencies
@@ -11,18 +11,21 @@ jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }));
 
-jest.mock('@/lib/api-client', () => ({
-  studentApi: {
-    joinSession: jest.fn(),
-  },
+jest.mock('@/features/session-joining/api/join-session', () => ({
+  joinSession: jest.fn(),
 }));
 
 jest.mock('@/stores/student-store', () => ({
-  useStudentStore: jest.fn(),
+  useStudentStore: jest.fn(() => ({
+    setAuth: jest.fn(),
+    setSession: jest.fn(),
+    setGroup: jest.fn(),
+  })),
 }));
 
+interface AgeModalProps { onVerified: (dob: Date, requiresConsent: boolean) => void; onCancel: () => void }
 jest.mock('@/components/compliance/age-verification-modal', () => ({
-  AgeVerificationModal: ({ onVerified, onCancel }: any) => (
+  AgeVerificationModal: ({ onVerified, onCancel }: AgeModalProps) => (
     <div data-testid="age-verification-modal">
       <button onClick={() => onVerified(new Date('2010-01-01'), false)}>
         Verify Age (13+)
@@ -35,8 +38,9 @@ jest.mock('@/components/compliance/age-verification-modal', () => ({
   ),
 }));
 
+interface ConsentProps { onCancel: () => void }
 jest.mock('@/components/compliance/parental-consent-required', () => ({
-  ParentalConsentRequired: ({ onCancel }: any) => (
+  ParentalConsentRequired: ({ onCancel }: ConsentProps) => (
     <div data-testid="parental-consent-modal">
       <p>Parental consent required</p>
       <button onClick={onCancel}>Go Back</button>
@@ -61,7 +65,7 @@ describe('JoinPage', () => {
     (useRouter as jest.Mock).mockReturnValue({
       push: mockPush,
     });
-    (useStudentStore as jest.Mock).mockReturnValue({
+    (useStudentStore as unknown as jest.Mock).mockReturnValue({
       setAuth: mockSetAuth,
       setSession: mockSetSession,
       setGroup: mockSetGroup,
@@ -86,7 +90,7 @@ describe('JoinPage', () => {
     await user.click(joinButton);
 
     expect(screen.getByText('Please enter your name')).toBeInTheDocument();
-    expect(studentApi.joinSession).not.toHaveBeenCalled();
+    expect(joinSession).not.toHaveBeenCalled();
   });
 
   it('shows age verification modal when form is submitted', async () => {
@@ -121,7 +125,7 @@ describe('JoinPage', () => {
       },
     };
 
-    (studentApi.joinSession as jest.Mock).mockResolvedValueOnce(mockResponse);
+    (joinSession as jest.Mock).mockResolvedValueOnce(mockResponse);
 
     render(<JoinPage {...defaultProps} />);
 
@@ -134,7 +138,7 @@ describe('JoinPage', () => {
     await user.click(screen.getByText('Verify Age (13+)'));
 
     await waitFor(() => {
-      expect(studentApi.joinSession).toHaveBeenCalledWith({
+      expect(joinSession).toHaveBeenCalledWith({
         sessionCode: 'ABC123',
         studentName: 'John Student',
         gradeLevel: '5',
@@ -159,12 +163,12 @@ describe('JoinPage', () => {
     await user.click(screen.getByText('Verify Age (Under 13)'));
 
     expect(screen.getByTestId('parental-consent-modal')).toBeInTheDocument();
-    expect(studentApi.joinSession).not.toHaveBeenCalled();
+    expect(joinSession).not.toHaveBeenCalled();
   });
 
   it('handles API errors gracefully', async () => {
     const user = userEvent.setup();
-    (studentApi.joinSession as jest.Mock).mockRejectedValueOnce({
+    (joinSession as jest.Mock).mockRejectedValueOnce({
       response: {
         status: 404,
         data: { message: 'Session not found' },
@@ -184,7 +188,7 @@ describe('JoinPage', () => {
 
   it('handles session full error', async () => {
     const user = userEvent.setup();
-    (studentApi.joinSession as jest.Mock).mockRejectedValueOnce({
+    (joinSession as jest.Mock).mockRejectedValueOnce({
       response: {
         status: 400,
         data: { message: 'Session is full' },
@@ -204,10 +208,10 @@ describe('JoinPage', () => {
 
   it('disables form during submission', async () => {
     const user = userEvent.setup();
-    let resolvePromise: (value: any) => void;
+    let resolvePromise: (value: unknown) => void;
     const promise = new Promise((resolve) => { resolvePromise = resolve; });
     
-    (studentApi.joinSession as jest.Mock).mockReturnValueOnce(promise);
+    (joinSession as jest.Mock).mockReturnValueOnce(promise);
 
     render(<JoinPage {...defaultProps} />);
 
@@ -256,7 +260,7 @@ describe('JoinPage', () => {
 
   it('preserves grade selection through age verification', async () => {
     const user = userEvent.setup();
-    (studentApi.joinSession as jest.Mock).mockResolvedValueOnce({
+    (joinSession as jest.Mock).mockResolvedValueOnce({
       token: 'token',
       student: { id: '123', displayName: 'John' },
       session: { id: 'session-123' },
@@ -270,7 +274,7 @@ describe('JoinPage', () => {
     await user.click(screen.getByText('Verify Age (13+)'));
 
     await waitFor(() => {
-      expect(studentApi.joinSession).toHaveBeenCalledWith(
+      expect(joinSession).toHaveBeenCalledWith(
         expect.objectContaining({
           gradeLevel: '7',
         })

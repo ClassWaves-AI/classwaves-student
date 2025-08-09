@@ -1,12 +1,12 @@
 import { useEffect, useCallback } from 'react';
-import { websocketService } from '@/lib/websocket';
+import { websocketService, GroupJoinedData } from '@/lib/websocket';
 import { useStudentStore } from '@/stores/student-store';
 
 interface UseWebSocketOptions {
   onSessionStatusChanged?: (status: string) => void;
   onGroupAssigned?: (group: { id: string; name: string }) => void;
-  onTranscription?: (data: any) => void;
-  onInsight?: (data: any) => void;
+  onTranscription?: (data: unknown) => void;
+  onInsight?: (data: unknown) => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
@@ -47,20 +47,21 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       },
       
       onSessionStatusChanged: (data) => {
-        options.onSessionStatusChanged?.(data.status);
+        options.onSessionStatusChanged?.((data as { status: string }).status);
       },
       
-      onGroupAssigned: (data) => {
+      onGroupJoined: (data: GroupJoinedData) => {
         setGroup({
           id: data.groupId,
-          name: data.groupName,
+          name: data.groupName ?? data.groupInfo?.name ?? 'Group',
           members: []
         });
-        options.onGroupAssigned?.(data);
+        options.onGroupAssigned?.({ id: data.groupId, name: data.groupName ?? data.groupInfo?.name ?? 'Group' });
       },
       
-      onTranscriptionReceived: options.onTranscription,
-      onInsightReceived: options.onInsight,
+      // Support both naming conventions
+      onGroupTranscriptionReceived: options.onTranscription,
+      onGroupInsightReceived: options.onInsight,
     });
 
     // Cleanup on unmount
@@ -71,7 +72,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       websocketService.disconnect();
       setConnected(false);
     };
-  }, [token, session?.id]);
+    // Include relevant deps to satisfy lint without over-subscribing
+  }, [token, session, setConnected, setGroup, options]);
 
   // Mute/unmute functions
   const updateMuteStatus = useCallback((isMuted: boolean) => {

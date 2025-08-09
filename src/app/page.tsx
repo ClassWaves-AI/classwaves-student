@@ -81,7 +81,7 @@ export default function HomePage() {
           <ol className="mt-2 space-y-1 text-sm text-gray-600">
             <li>1. Get the session code from your teacher</li>
             <li>2. Enter the code above</li>
-            <li>3. Tap "Join Session"</li>
+            <li>3. Tap &quot;Join Session&quot;</li>
             <li>4. Wait for your teacher to start recording</li>
           </ol>
         </div>

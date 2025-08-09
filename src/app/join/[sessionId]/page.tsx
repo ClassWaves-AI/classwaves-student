@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Users, Loader2 } from 'lucide-react'
-import { studentApi } from '@/lib/api-client'
+import { joinSession } from '@/features/session-joining/api/join-session'
 import { useStudentStore } from '@/stores/student-store'
 import { AgeVerificationModal } from '@/components/compliance/age-verification-modal'
 import { ParentalConsentRequired } from '@/components/compliance/parental-consent-required'
@@ -16,14 +16,12 @@ interface JoinPageProps {
 
 export default function JoinPage({ params }: JoinPageProps) {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
   const [error, setError] = useState('')
   const [studentName, setStudentName] = useState('')
   const [gradeLevel, setGradeLevel] = useState('')
   const [showAgeVerification, setShowAgeVerification] = useState(false)
   const [showParentalConsent, setShowParentalConsent] = useState(false)
-  const [verificationData, setVerificationData] = useState<{ dateOfBirth: Date; requiresConsent: boolean } | null>(null)
   
   const { setAuth, setSession, setGroup } = useStudentStore()
 
@@ -40,7 +38,6 @@ export default function JoinPage({ params }: JoinPageProps) {
   }
 
   const handleAgeVerified = async (dateOfBirth: Date, requiresConsent: boolean) => {
-    setVerificationData({ dateOfBirth, requiresConsent })
     setShowAgeVerification(false)
 
     if (requiresConsent) {
@@ -58,18 +55,22 @@ export default function JoinPage({ params }: JoinPageProps) {
     setError('')
 
     try {
-      const response = await studentApi.joinSession({
+      const response = await joinSession({
         sessionCode: params.sessionId,
         studentName: studentName.trim(),
         gradeLevel: gradeLevel || undefined,
         dateOfBirth: dateOfBirth.toISOString(),
       })
 
-      // Store authentication info
-      setAuth(response.token, response.student)
-      setSession(response.session)
+      // Store authentication info (map to store types)
+      setAuth(response.token, {
+        id: response.student.id,
+        name: response.student.displayName,
+        sessionId: response.session.id,
+      })
+      setSession({ id: response.session.id, title: '', status: 'active' })
       if (response.group) {
-        setGroup(response.group)
+        setGroup({ id: response.group.id, name: response.group.name, members: [] })
       }
 
       // Navigate to the session page
