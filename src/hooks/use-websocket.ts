@@ -10,7 +10,7 @@ interface UseWebSocketOptions {
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
-  const { token, session, setConnected, setGroup } = useStudentStore();
+  const { token, session, setConnected, setGroup, setGroupReadiness } = useStudentStore();
 
   // Handle connection
   useEffect(() => {
@@ -59,6 +59,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         options.onGroupAssigned?.({ id: data.groupId, name: data.groupName ?? data.groupInfo?.name ?? 'Group' });
       },
       
+      onGroupStatusChanged: (data) => {
+        // Update group readiness based on status
+        // According to SOW: ready status means leader has marked ready
+        const isReady = data.status === 'ready' || data.status === 'recording';
+        setGroupReadiness(isReady);
+      },
+      
       // Support both naming conventions
       onGroupTranscriptionReceived: options.onTranscription,
       onGroupInsightReceived: options.onInsight,
@@ -73,7 +80,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       setConnected(false);
     };
     // Include relevant deps to satisfy lint without over-subscribing
-  }, [token, session, setConnected, setGroup, options]);
+  }, [token, session, setConnected, setGroup, setGroupReadiness, options]);
 
   // Mute/unmute functions
   const updateMuteStatus = useCallback((isMuted: boolean) => {

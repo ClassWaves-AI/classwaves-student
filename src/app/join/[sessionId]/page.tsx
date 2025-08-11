@@ -70,7 +70,15 @@ export default function JoinPage({ params }: JoinPageProps) {
       })
       setSession({ id: response.session.id, title: '', status: 'active' })
       if (response.group) {
-        setGroup({ id: response.group.id, name: response.group.name, members: [] })
+        // Check if this student is the leader of the assigned group
+        const isLeader = response.group.leaderId === response.student.id;
+        setGroup({ 
+          id: response.group.id, 
+          name: response.group.name, 
+          members: [],
+          isLeader: isLeader,
+          isReady: false // Initial state - group is not ready
+        })
       }
 
       // Navigate to the session page
