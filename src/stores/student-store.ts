@@ -17,6 +17,8 @@ interface Group {
   id: string;
   name: string;
   members: any[];
+  isLeader?: boolean; // Whether current student is the leader of this group
+  isReady?: boolean; // Whether the group leader has marked ready
 }
 
 interface StudentState {
@@ -41,6 +43,7 @@ interface StudentState {
   setAuth: (token: string, student: Student) => void;
   setSession: (session: Session) => void;
   setGroup: (group: Group | null) => void;
+  setGroupReadiness: (isReady: boolean) => void; // Update group readiness status
   setRecording: (isRecording: boolean) => void;
   setMuted: (isMuted: boolean) => void;
   setAudioLevel: (level: number) => void;
@@ -70,6 +73,11 @@ export const useStudentStore = create<StudentState>()(
         setSession: (session) => set({ session }),
         
         setGroup: (group) => set({ group }),
+        
+        setGroupReadiness: (isReady) => 
+          set((state) => ({
+            group: state.group ? { ...state.group, isReady } : null
+          })),
         
         setRecording: (isRecording) => set({ isRecording }),
         

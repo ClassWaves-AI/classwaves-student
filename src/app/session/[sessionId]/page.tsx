@@ -7,6 +7,7 @@ import { useStudentStore } from '@/stores/student-store' // This store may need 
 import { useAudioRecorder } from '@/features/audio-recording/hooks/use-audio-recorder'
 import { useWebSocket } from '@/hooks/use-websocket'
 import { wsService } from '@/lib/websocket'
+import { LeaderReadyControl } from '@/components/LeaderReadyControl'
 
 interface SessionPageProps {
   params: { sessionId: string }
@@ -114,10 +115,15 @@ export default function SessionPage({ params }: SessionPageProps) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-        <Users className="h-16 w-16 text-gray-400 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800">Group Audio Capture</h2>
-        <p className="text-gray-600 mb-8">This device is capturing audio for your group.</p>
+      <main className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto space-y-8">
+        {/* Leader Ready Control */}
+        <LeaderReadyControl data-testid="leader-ready-control" />
+        
+        {/* Audio Recording Section */}
+        <div className="flex flex-col items-center">
+          <Users className="h-16 w-16 text-gray-400 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800">Group Audio Capture</h2>
+          <p className="text-gray-600 mb-8">This device is capturing audio for your group.</p>
         
         {/* Recording Button */}
         <button
@@ -136,22 +142,23 @@ export default function SessionPage({ params }: SessionPageProps) {
           )}
         </button>
 
-        {/* Status Text */}
-        <div className="mt-8 h-10">
-          {audioError && <p className="text-red-600 font-medium">{audioError}</p>}
-          {!audioError && (
-             <>
-              {session?.status === 'active' && isRecording && (
-                <p className="text-green-600 font-medium">Recording audio for the group...</p>
-              )}
-              {session?.status === 'active' && !isRecording && (
-                <p className="text-gray-600">Tap the microphone to start recording.</p>
-              )}
-              {session?.status !== 'active' && (
-                <p className="text-yellow-600">Recording paused. Waiting for teacher to resume session.</p>
-              )}
-             </>
-          )}
+          {/* Status Text */}
+          <div className="mt-8 h-10">
+            {audioError && <p className="text-red-600 font-medium">{audioError}</p>}
+            {!audioError && (
+               <>
+                {session?.status === 'active' && isRecording && (
+                  <p className="text-green-600 font-medium">Recording audio for the group...</p>
+                )}
+                {session?.status === 'active' && !isRecording && (
+                  <p className="text-gray-600">Tap the microphone to start recording.</p>
+                )}
+                {session?.status !== 'active' && (
+                  <p className="text-yellow-600">Recording paused. Waiting for teacher to resume session.</p>
+                )}
+               </>
+            )}
+          </div>
         </div>
       </main>
     </div>

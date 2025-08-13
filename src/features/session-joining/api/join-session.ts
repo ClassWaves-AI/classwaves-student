@@ -11,7 +11,7 @@ export interface JoinSessionResponse {
   token: string
   student: { id: string; displayName: string }
   session: { id: string }
-  group?: { id: string; name: string } | null
+  group?: { id: string; name: string; leaderId?: string } | null
 }
 
 export async function joinSession(

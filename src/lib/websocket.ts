@@ -218,6 +218,15 @@ class GroupKioskWebSocketService {
     this.socket.emit('group:status_update', { groupId, isReady });
   }
 
+  // New method for leader ready functionality as per SOW requirements
+  markLeaderReady(sessionId: string, groupId: string, ready: boolean) {
+    if (!this.socket?.connected) {
+      console.error('WebSocket not connected');
+      return;
+    }
+    this.socket.emit('group:leader_ready', { sessionId, groupId, ready });
+  }
+
   // Audio streaming emitters
   startAudioStream(groupId: string) {
     if (!this.socket?.connected) {
