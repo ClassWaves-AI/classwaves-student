@@ -5,6 +5,9 @@ interface Student {
   id: string;
   name: string;
   sessionId: string;
+  email?: string; // Student email for group leaders
+  isGroupLeader?: boolean; // Whether this student is a group leader
+  isFromRoster?: boolean; // Whether details were auto-populated from roster
 }
 
 interface Session {

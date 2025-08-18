@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Users, Loader2 } from 'lucide-react'
 import { joinSession } from '@/features/session-joining/api/join-session'
 import { useStudentStore } from '@/stores/student-store'
@@ -16,20 +16,43 @@ interface JoinPageProps {
 
 export default function JoinPage({ params }: JoinPageProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isJoining, setIsJoining] = useState(false)
   const [error, setError] = useState('')
   const [studentName, setStudentName] = useState('')
+  const [email, setEmail] = useState('')
   const [gradeLevel, setGradeLevel] = useState('')
   const [showAgeVerification, setShowAgeVerification] = useState(false)
   const [showParentalConsent, setShowParentalConsent] = useState(false)
   
   const { setAuth, setSession, setGroup } = useStudentStore()
 
+  // Auto-populate email from URL parameters on component mount
+  useEffect(() => {
+    const emailFromUrl = searchParams.get('email')
+    if (emailFromUrl) {
+      setEmail(emailFromUrl)
+      console.log('✅ Email auto-populated from invitation link:', emailFromUrl)
+    }
+  }, [searchParams])
+
   const handleJoinSession = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!studentName.trim()) {
       setError('Please enter your name')
+      return
+    }
+
+    if (!email.trim()) {
+      setError('Email address is required to join as a group leader')
+      return
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address')
       return
     }
 
@@ -58,16 +81,30 @@ export default function JoinPage({ params }: JoinPageProps) {
       const response = await joinSession({
         sessionCode: params.sessionId,
         studentName: studentName.trim(),
+        email: email.trim(),
         gradeLevel: gradeLevel || undefined,
         dateOfBirth: dateOfBirth.toISOString(),
       })
 
       // Store authentication info (map to store types)
-      setAuth(response.token, {
+      const studentData = {
         id: response.student.id,
         name: response.student.displayName,
         sessionId: response.session.id,
-      })
+        ...(response.student.email && { email: response.student.email }),
+        ...(response.student.isGroupLeader !== undefined && { isGroupLeader: response.student.isGroupLeader }),
+        ...(response.student.isFromRoster !== undefined && { isFromRoster: response.student.isFromRoster }),
+      };
+      setAuth(response.token, studentData)
+
+      // Auto-populate form if user details were found in roster
+      if (response.student.isFromRoster) {
+        setStudentName(response.student.displayName)
+        if (response.student.email) {
+          setEmail(response.student.email)
+        }
+        console.log('✅ Student details auto-populated from roster')
+      }
       setSession({ id: response.session.id, title: '', status: 'active' })
       if (response.group) {
         // Check if this student is the leader of the assigned group
@@ -134,6 +171,32 @@ export default function JoinPage({ params }: JoinPageProps) {
               autoFocus
               disabled={isJoining}
             />
+          </div>
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              {email ? 'Confirm Your Email Address' : 'Your Email Address'}
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setError('')
+              }}
+              placeholder={email ? 'Email address from invitation' : 'Enter your email address'}
+              className={`mt-1 block w-full rounded-lg border px-4 py-3 text-lg shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                email ? 'bg-green-50 border-green-300' : 'border-gray-300'
+              }`}
+              autoComplete="email"
+              disabled={isJoining}
+            />
+            {email && (
+              <p className="mt-1 text-sm text-green-600">
+                ✅ Email auto-populated from your invitation
+              </p>
+            )}
           </div>
 
           <div>
