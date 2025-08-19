@@ -1,20 +1,39 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Mail, Shield } from 'lucide-react';
 
 interface ParentalConsentRequiredProps {
   studentName: string;
   onCancel: () => void;
+  onConsentProvided?: () => void;
 }
 
 export function ParentalConsentRequired({
   studentName,
-  onCancel
+  onCancel,
+  onConsentProvided
 }: ParentalConsentRequiredProps) {
+  const [parentEmail, setParentEmail] = useState('');
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmitConsent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!parentEmail.trim() || !consentChecked) {
+      return;
+    }
+    
+    setIsSubmitting(true);
+    // Simulate consent submission - in real implementation, this would call an API
+    setTimeout(() => {
+      setIsSubmitting(false);
+      onConsentProvided?.();
+    }, 1000);
+  };
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6">
+      <div data-testid="parental-consent-modal" className="w-full max-w-md bg-white rounded-lg shadow-xl p-6">
         <div className="space-y-6">
           <div className="text-center">
             <div className="flex items-center justify-center mb-4">
@@ -22,7 +41,7 @@ export function ParentalConsentRequired({
             </div>
             <h2 className="text-2xl font-bold text-gray-900">Parent Permission Needed</h2>
             <p className="text-gray-600 mt-2">
-              Hi {studentName}! Because you&apos;re under 13, we need your parent or guardian&apos;s permission first.
+              A parent or guardian must provide consent for you to continue.
             </p>
           </div>
 
@@ -49,18 +68,58 @@ export function ParentalConsentRequired({
             </p>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm text-gray-600 text-center">
-              Please let your teacher know so they can help get permission from your parent.
-            </p>
-            
-            <button
-              onClick={onCancel}
-              className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-            >
-              Go Back
-            </button>
-          </div>
+          <form onSubmit={handleSubmitConsent} className="space-y-4">
+            <div>
+              <label htmlFor="parent-email" className="block text-sm font-medium text-gray-700 mb-1">
+                Parent/Guardian Email Address
+              </label>
+              <input
+                id="parent-email"
+                data-testid="parent-email-input"
+                type="email"
+                value={parentEmail}
+                onChange={(e) => setParentEmail(e.target.value)}
+                placeholder="Enter parent's email address"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="flex items-start gap-2">
+              <input
+                id="consent-checkbox"
+                data-testid="consent-checkbox"
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => setConsentChecked(e.target.checked)}
+                className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                disabled={isSubmitting}
+              />
+              <label htmlFor="consent-checkbox" className="text-sm text-gray-700">
+                I confirm that my parent/guardian has given permission for me to use ClassWaves and agrees to the privacy policy.
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                disabled={isSubmitting}
+              >
+                Go Back
+              </button>
+              <button
+                type="submit"
+                data-testid="submit-consent-button"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!parentEmail.trim() || !consentChecked || isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Consent'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
