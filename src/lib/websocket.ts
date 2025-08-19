@@ -76,7 +76,7 @@ class GroupKioskWebSocketService {
     
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000';
     
-    this.socket = io(wsUrl, {
+    this.socket = io(`${wsUrl}/sessions`, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
