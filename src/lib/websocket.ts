@@ -74,7 +74,7 @@ class GroupKioskWebSocketService {
 
     this.events = events;
     
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000';
     
     this.socket = io(wsUrl, {
       auth: { token },
@@ -125,6 +125,11 @@ class GroupKioskWebSocketService {
     this.socket.on('session:status_changed', (data: SessionStatusChangedData) => {
       console.log('Session status changed:', data);
       this.events.onSessionStatusChanged?.(data);
+    });
+
+    // Student session join confirmation
+    this.socket.on('student:session:joined', (data: { sessionId: string; groupId: string; groupName: string }) => {
+      console.log('Student successfully joined session and group:', data);
     });
 
     // Group kiosk events
@@ -182,7 +187,8 @@ class GroupKioskWebSocketService {
       console.error('WebSocket not connected');
       return;
     }
-    this.socket.emit('session:join', { sessionId });
+    // Use student-specific session join event
+    this.socket.emit('student:session:join', { sessionId });
     this.events.onSessionJoined?.({ sessionId });
   }
 

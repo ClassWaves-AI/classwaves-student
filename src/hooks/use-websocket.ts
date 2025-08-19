@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { websocketService, GroupJoinedData } from '@/lib/websocket';
 import { useStudentStore } from '@/stores/student-store';
 
@@ -11,6 +11,20 @@ interface UseWebSocketOptions {
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const { token, session, setConnected, setGroup, setGroupReadiness } = useStudentStore();
+
+  // Memoize the options to prevent infinite re-renders
+  // Only recreate when the actual callback references change
+  const stableOptions = useMemo(() => ({
+    onSessionStatusChanged: options.onSessionStatusChanged,
+    onGroupAssigned: options.onGroupAssigned,
+    onTranscription: options.onTranscription,
+    onInsight: options.onInsight,
+  }), [
+    options.onSessionStatusChanged,
+    options.onGroupAssigned, 
+    options.onTranscription,
+    options.onInsight
+  ]);
 
   // Handle connection
   useEffect(() => {
@@ -47,7 +61,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       },
       
       onSessionStatusChanged: (data) => {
-        options.onSessionStatusChanged?.((data as { status: string }).status);
+        stableOptions.onSessionStatusChanged?.((data as { status: string }).status);
       },
       
       onGroupJoined: (data: GroupJoinedData) => {
@@ -56,7 +70,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           name: data.groupName ?? data.groupInfo?.name ?? 'Group',
           members: []
         });
-        options.onGroupAssigned?.({ id: data.groupId, name: data.groupName ?? data.groupInfo?.name ?? 'Group' });
+        stableOptions.onGroupAssigned?.({ id: data.groupId, name: data.groupName ?? data.groupInfo?.name ?? 'Group' });
       },
       
       onGroupStatusChanged: (data) => {
@@ -67,8 +81,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       },
       
       // Support both naming conventions
-      onGroupTranscriptionReceived: options.onTranscription,
-      onGroupInsightReceived: options.onInsight,
+      onGroupTranscriptionReceived: stableOptions.onTranscription,
+      onGroupInsightReceived: stableOptions.onInsight,
     });
 
     // Cleanup on unmount
@@ -79,8 +93,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       websocketService.disconnect();
       setConnected(false);
     };
-    // Include relevant deps to satisfy lint without over-subscribing
-  }, [token, session, setConnected, setGroup, setGroupReadiness, options]);
+    // Fixed dependency array - removed unstable 'options', using stable dependencies only
+  }, [token, session?.id, setConnected, setGroup, setGroupReadiness, stableOptions]);
 
   // Mute/unmute functions
   const updateMuteStatus = useCallback((isMuted: boolean) => {
