@@ -107,16 +107,16 @@ npm run dev
 ### Verification
 ```bash
 # Check application health
-curl http://localhost:3002/api/health
+curl http://localhost:3003/api/health
 
 # Test PWA manifest
-curl http://localhost:3002/manifest.json
+curl http://localhost:3003/manifest.json
 
 # Verify service worker
-open http://localhost:3002 # Check dev tools → Application → Service Workers
+open http://localhost:3003 # Check dev tools → Application → Service Workers
 ```
 
-Open [http://localhost:3002](http://localhost:3002) to view the application.
+Open [http://localhost:3003](http://localhost:3003) to view the application.
 
 ## Student Interface
 
@@ -298,7 +298,7 @@ cd classwaves-student && npm run dev
 # Platform verification
 curl http://localhost:3001/api/v1/health  # Backend
 curl http://localhost:3000/api/health     # Frontend (optional)
-curl http://localhost:3002/api/health     # Student app
+curl http://localhost:3003/api/health     # Student app
 ```
 
 ## Contributing

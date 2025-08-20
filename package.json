@@ -11,7 +11,9 @@
     "test": "jest --passWithNoTests",
     "test:ci": "jest --ci --runInBand",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+    "health:check": "curl -f http://localhost:3003/api/health || exit 1",
+    "health:wait": "node -e \"const http=require('http');const url=process.env.E2E_STUDENT_URL||'http://localhost:3003';const path='/api/health';const deadline=Date.now()+180000;function ping(){http.get(url+path,(res)=>{if(res.statusCode===200){console.log('Student app ready');process.exit(0);}res.resume();retry();}).on('error',retry);}function retry(){if(Date.now()>deadline){console.error('Student app not ready in time');process.exit(1);}setTimeout(ping,1000);}ping();\""
   },
   "dependencies": {
     "axios": "^1.6.0",
