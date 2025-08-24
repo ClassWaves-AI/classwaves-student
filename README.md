@@ -25,6 +25,8 @@
 - **Touch-Friendly**: Large, accessible touch targets
 
 🎙️ **Audio & Collaboration**
+- **Auto-Start WaveListener**: Automatic audio recording when session becomes active
+- **3-2-1 Countdown**: Visual countdown before WaveListener activation
 - **One-Tap Recording**: Simple, intuitive audio recording interface
 - **Real-time Feedback**: Visual audio level indicators and status
 - **Group Auto-Assignment**: Seamless placement into collaborative groups
@@ -177,6 +179,14 @@ Once joined, students see a focused collaboration interface with:
 ```
 
 ## Audio Recording
+
+### WaveListener Auto-Start
+- **Intelligent Activation**: WaveListener automatically starts when sessions become active
+- **Visual Countdown**: 3-2-1 countdown with pulse animation before recording begins
+- **Permission Gating**: Auto-start only occurs when microphone permissions are granted
+- **Error Handling**: Robust handling of permission revocation and device issues
+- **Manual Override**: Pause/resume/stop controls available during auto-recording
+- **Clean Termination**: Automatic cleanup when sessions end or users leave
 
 ### Recording Capabilities
 - **High-Quality Audio**: 44.1kHz sample rate, optimized for speech
