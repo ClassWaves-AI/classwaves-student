@@ -11,6 +11,8 @@ import { wsService } from '@/lib/websocket'
 import { LeaderReadyControl } from '@/components/LeaderReadyControl'
 import { CountdownOverlay, WaveListenerStatus } from '@/components/CountdownOverlay'
 import { WaveListenerControls, WaveListenerToggle } from '@/components/WaveListenerControls'
+import { RejoinSessionModal } from '@/components/RejoinSessionModal'
+import { useSessionPersistence } from '@/hooks/use-session-persistence'
 
 interface SessionPageProps {
   params: { sessionId: string }
@@ -21,6 +23,12 @@ export default function SessionPage({ params }: SessionPageProps) {
   const [isOnline, setIsOnline] = useState(true)
   const [isPaused, setIsPaused] = useState(false)
   const { student, session, group, logout } = useStudentStore()
+  
+  // Session persistence state (SG-ST-14)
+  const [showRejoinModal, setShowRejoinModal] = useState(false)
+  const [rejoinableSession, setRejoinableSession] = useState<any>(null)
+  const [isRejoining, setIsRejoining] = useState(false)
+  const { checkForRejoinableSession, clearPersistedSession } = useSessionPersistence()
 
   // Auto-start audio control (SG-ST-09, SG-ST-10, SG-ST-11, SG-ST-12, SG-ST-13)
   const {
@@ -96,9 +104,37 @@ export default function SessionPage({ params }: SessionPageProps) {
     if (isManualRecording) {
       stopManualRecording();
     }
+    
+    // Clear persisted session since user is intentionally leaving
+    clearPersistedSession();
     logout();
     router.push('/');
-  }, [isAutoRecording, isManualRecording, stopAutoRecording, stopManualRecording, logout, router]);
+  }, [isAutoRecording, isManualRecording, stopAutoRecording, stopManualRecording, clearPersistedSession, logout, router]);
+
+  // Session persistence handlers (SG-ST-14)
+  const handleRejoinSession = useCallback(async (sessionData: any) => {
+    setIsRejoining(true);
+    try {
+      // Navigate to the persisted session
+      router.push(`/session/${sessionData.sessionId}`);
+      setShowRejoinModal(false);
+    } catch (error) {
+      console.error('Failed to rejoin session:', error);
+      setIsRejoining(false);
+    }
+  }, [router]);
+
+  const handleStartNewSession = useCallback(() => {
+    clearPersistedSession();
+    setShowRejoinModal(false);
+    setRejoinableSession(null);
+    // Stay on current session - user chose to start fresh
+  }, [clearPersistedSession]);
+
+  const handleCloseRejoinModal = useCallback(() => {
+    setShowRejoinModal(false);
+    setRejoinableSession(null);
+  }, []);
   
   // Monitor online status
   useEffect(() => {
@@ -112,6 +148,20 @@ export default function SessionPage({ params }: SessionPageProps) {
     }
   }, [])
   
+  // Check for rejoinable sessions on mount (SG-ST-14)
+  useEffect(() => {
+    const checkRejoinable = () => {
+      const rejoinable = checkForRejoinableSession();
+      if (rejoinable && rejoinable.sessionId !== params.sessionId) {
+        setRejoinableSession(rejoinable);
+        setShowRejoinModal(true);
+      }
+    };
+    
+    // Small delay to ensure other initialization is complete
+    setTimeout(checkRejoinable, 1000);
+  }, [checkForRejoinableSession, params.sessionId]);
+
   // Redirect if not properly joined
   useEffect(() => {
     if (!student || !session || !group) {
@@ -252,6 +302,16 @@ export default function SessionPage({ params }: SessionPageProps) {
         onResume={handleResume}
         onStop={handleStop}
         disabled={!isConnected}
+      />
+
+      {/* Session Persistence Modal (SG-ST-14) */}
+      <RejoinSessionModal
+        isOpen={showRejoinModal}
+        sessionData={rejoinableSession}
+        onRejoin={handleRejoinSession}
+        onStartNew={handleStartNewSession}
+        onClose={handleCloseRejoinModal}
+        isRejoining={isRejoining}
       />
     </div>
   )
