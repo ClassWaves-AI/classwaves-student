@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mic, MicOff, Users, Wifi, WifiOff, Loader2, LogOut } from 'lucide-react'
+import { Users, Wifi, WifiOff, Loader2, LogOut } from 'lucide-react'
 import { useStudentStore } from '@/stores/student-store' // This store may need simplification as well
 import { useAudioRecorder } from '@/features/audio-recording/hooks/use-audio-recorder'
 import { useWebSocket } from '@/hooks/use-websocket'
+import { useSessionAudioControl } from '@/hooks/use-session-audio-control'
 import { wsService } from '@/lib/websocket'
 import { LeaderReadyControl } from '@/components/LeaderReadyControl'
+import { CountdownOverlay, WaveListenerStatus } from '@/components/CountdownOverlay'
+import { WaveListenerControls, WaveListenerToggle } from '@/components/WaveListenerControls'
 
 interface SessionPageProps {
   params: { sessionId: string }
@@ -16,47 +19,86 @@ interface SessionPageProps {
 export default function SessionPage({ params }: SessionPageProps) {
   const router = useRouter()
   const [isOnline, setIsOnline] = useState(true)
+  const [isPaused, setIsPaused] = useState(false)
   const { student, session, group, logout } = useStudentStore()
 
-  // WebSocket connection for the session (student hook manages session join from store)
-  const { isConnected } = useWebSocket();
+  // Auto-start audio control (SG-ST-09, SG-ST-10, SG-ST-11, SG-ST-12, SG-ST-13)
+  const {
+    isAutoStarting,
+    countdown,
+    isAutoRecording,
+    autoStartError,
+    audioLevel,
+    hasPermission,
+    handleSessionStatusChange,
+    stopAutoRecording,
+    clearAutoStartError,
+  } = useSessionAudioControl();
 
-  // Refactored audio handler to stream via WebSocket
+  // WebSocket connection with auto-start integration
+  const { isConnected } = useWebSocket({
+    onSessionStatusChanged: handleSessionStatusChange,
+  });
+
+  // Fallback manual audio recorder (for manual control when needed)
   const handleAudioChunk = useCallback((blob: Blob) => {
     if (!isConnected || !group) return;
-    // Send raw audio blob over the websocket for the group
     wsService.sendGroupAudio(group.id, blob, 'audio/webm;codecs=opus');
   }, [isConnected, group]);
 
   const {
-    isRecording,
+    isRecording: isManualRecording,
     error: audioError,
-    startRecording,
-    stopRecording,
+    startRecording: startManualRecording,
+    stopRecording: stopManualRecording,
   } = useAudioRecorder({
     onDataAvailable: handleAudioChunk,
-    chunkSize: 2000, // 2-second chunks for lower latency
+    chunkSize: 2000,
   });
 
-  const toggleRecording = () => {
-    if (session?.status !== 'active') return;
-    if (!group) return;
-    if (isRecording) {
-      // End stream lifecycle and stop recorder
-      wsService.endAudioStream(group.id);
-      stopRecording();
-    } else {
-      // Start stream lifecycle before recording
-      wsService.startAudioStream(group.id);
-      startRecording();
-    }
-  };
+  // Manual recording controls (fallback)
+  const handleManualStart = useCallback(async () => {
+    if (session?.status !== 'active' || !group?.id) return;
+    
+    wsService.startAudioStream(group.id);
+    await startManualRecording();
+  }, [session?.status, group?.id, startManualRecording]);
 
-  const handleLeaveSession = () => {
-    stopRecording();
+  const handleManualStop = useCallback(async () => {
+    if (!group?.id) return;
+    
+    wsService.endAudioStream(group.id);
+    await stopManualRecording();
+  }, [group?.id, stopManualRecording]);
+
+  // Auto-recording control handlers
+  const handlePause = useCallback(async () => {
+    // TODO: Implement pause functionality in useSessionAudioControl
+    setIsPaused(true);
+    console.log('Pause functionality - to be implemented');
+  }, []);
+
+  const handleResume = useCallback(async () => {
+    setIsPaused(false);
+    console.log('Resume functionality - to be implemented');
+  }, []);
+
+  const handleStop = useCallback(async () => {
+    await stopAutoRecording();
+    setIsPaused(false);
+  }, [stopAutoRecording]);
+
+  const handleLeaveSession = useCallback(() => {
+    // Stop any active recordings
+    if (isAutoRecording) {
+      stopAutoRecording();
+    }
+    if (isManualRecording) {
+      stopManualRecording();
+    }
     logout();
     router.push('/');
-  };
+  }, [isAutoRecording, isManualRecording, stopAutoRecording, stopManualRecording, logout, router]);
   
   // Monitor online status
   useEffect(() => {
@@ -119,48 +161,98 @@ export default function SessionPage({ params }: SessionPageProps) {
         {/* Leader Ready Control */}
         <LeaderReadyControl data-testid="leader-ready-control" />
         
-        {/* Audio Recording Section */}
+        {/* WaveListener Section */}
         <div className="flex flex-col items-center">
           <Users className="h-16 w-16 text-gray-400 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800">Group Audio Capture</h2>
-          <p className="text-gray-600 mb-8">This device is capturing audio for your group.</p>
+          <h2 className="text-2xl font-bold text-gray-800">WaveListener</h2>
+          <p className="text-gray-600 mb-8">
+            AI-powered audio assistant that starts automatically when the session begins.
+          </p>
         
-        {/* Recording Button */}
-        <button
-          onClick={toggleRecording}
-          disabled={session?.status !== 'active' || !isConnected}
-          className={`touch-target rounded-full p-8 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-            isRecording
-              ? 'bg-red-600 hover:bg-red-700 recording-pulse'
-              : 'bg-blue-600 hover:bg-blue-700'
-          }`}
-        >
-          {isRecording ? (
-            <MicOff className="h-16 w-16 text-white" />
+          {/* Auto-start WaveListener or Manual Toggle */}
+          {session?.status === 'active' && group?.isReady ? (
+            <div className="text-center">
+              <div className="text-lg font-medium text-green-700 mb-2">
+                Auto-Recording Active
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                WaveListener started automatically when the session began
+              </p>
+            </div>
           ) : (
-            <Mic className="h-16 w-16 text-white" />
+            <WaveListenerToggle
+              isAutoRecording={isAutoRecording || isManualRecording}
+              hasPermission={hasPermission}
+              isGroupReady={group?.isReady ?? false}
+              sessionStatus={session?.status ?? 'pending'}
+              onManualStart={handleManualStart}
+              onManualStop={isAutoRecording ? handleStop : handleManualStop}
+              disabled={!isConnected}
+            />
           )}
-        </button>
 
           {/* Status Text */}
           <div className="mt-8 h-10">
-            {audioError && <p className="text-red-600 font-medium">{audioError}</p>}
-            {!audioError && (
-               <>
-                {session?.status === 'active' && isRecording && (
-                  <p className="text-green-600 font-medium">Recording audio for the group...</p>
+            {(audioError || autoStartError) && (
+              <div className="text-center">
+                <p className="text-red-600 font-medium">{audioError || autoStartError}</p>
+                {autoStartError && (
+                  <button
+                    onClick={clearAutoStartError}
+                    className="text-sm text-blue-600 hover:text-blue-700 mt-1"
+                  >
+                    Dismiss
+                  </button>
                 )}
-                {session?.status === 'active' && !isRecording && (
-                  <p className="text-gray-600">Tap the microphone to start recording.</p>
+              </div>
+            )}
+            
+            {!audioError && !autoStartError && (
+              <>
+                {(isAutoRecording || isManualRecording) && (
+                  <p className="text-green-600 font-medium">
+                    🎙️ WaveListener is capturing audio for AI analysis...
+                  </p>
+                )}
+                {session?.status === 'active' && !isAutoRecording && !isManualRecording && group?.isReady && (
+                  <p className="text-gray-600">
+                    WaveListener will start automatically, or tap to start manually.
+                  </p>
                 )}
                 {session?.status !== 'active' && (
-                  <p className="text-yellow-600">Recording paused. Waiting for teacher to resume session.</p>
+                  <p className="text-yellow-600">
+                    Waiting for teacher to start the session...
+                  </p>
                 )}
-               </>
+                {!group?.isReady && session?.status === 'active' && (
+                  <p className="text-orange-600">
+                    Mark your group as ready to enable WaveListener.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
       </main>
+
+      {/* Auto-start Overlays and Controls */}
+      <CountdownOverlay countdown={countdown} isVisible={isAutoStarting} />
+      
+      <WaveListenerStatus
+        isAutoRecording={isAutoRecording}
+        isAutoStarting={isAutoStarting}
+        audioLevel={audioLevel}
+        autoStartError={autoStartError}
+      />
+
+      <WaveListenerControls
+        isAutoRecording={isAutoRecording}
+        isPaused={isPaused}
+        onPause={handlePause}
+        onResume={handleResume}
+        onStop={handleStop}
+        disabled={!isConnected}
+      />
     </div>
   )
 }
