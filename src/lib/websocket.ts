@@ -279,6 +279,21 @@ class GroupKioskWebSocketService {
     // no-op for now
   }
 
+  // SG-ST-11: Method to emit wavelistener:issue events
+  reportWaveListenerIssue(sessionId: string, groupId: string, reason: 'permission_revoked' | 'device_error' | 'stream_failed') {
+    if (!this.socket?.connected) {
+      console.error('WebSocket not connected');
+      return;
+    }
+
+    console.log('Reporting WaveListener issue:', { sessionId, groupId, reason });
+    this.socket.emit('wavelistener:issue', {
+      sessionId,
+      groupId,
+      reason,
+    });
+  }
+
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();
