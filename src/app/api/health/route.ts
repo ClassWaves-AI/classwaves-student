@@ -42,7 +42,7 @@ function checkAudioCapabilities(): 'healthy' | 'degraded' | 'unhealthy' {
     }
 
     // Check if getUserMedia is available
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
       return 'healthy';
     }
 
