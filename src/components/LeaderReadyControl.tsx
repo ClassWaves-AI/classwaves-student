@@ -5,6 +5,9 @@ import { Crown, CheckCircle, Clock, AlertCircle, Mic, MicOff } from 'lucide-reac
 import { websocketService } from '@/lib/websocket';
 import { useStudentStore } from '@/stores/student-store';
 import { useAudioRecorder } from '@/features/audio-recording/hooks/use-audio-recorder';
+import { PermissionRequestModal } from './PermissionRequestModal';
+import { PermissionProgress } from './ProgressIndicator';
+import { WaveListenerInfoModal, WaveListenerHelpIcon } from './WaveListenerInfoModal';
 
 interface LeaderReadyControlProps {
   'data-testid'?: string;
@@ -15,12 +18,26 @@ export function LeaderReadyControl({ 'data-testid': testId }: LeaderReadyControl
   const [isLoading, setIsLoading] = useState(false);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   
+  // Modal states for enhanced UX (SG-ST-01, SG-ST-04, SG-ST-05, SG-ST-15, SG-ST-16)
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [permissionModalStage, setPermissionModalStage] = useState<'explanation' | 'request' | 'success' | 'denied'>('explanation');
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
+  const [progressStep, setProgressStep] = useState<'requesting' | 'processing' | 'ready' | 'error'>('requesting');
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
+  
   // SG-ST-02: Use audio recorder for permission management
   const { hasPermission, error: permissionError, requestPermission } = useAudioRecorder();
   
-  // SG-ST-02: Proactively check mic permission on component mount
+  // SG-ST-02: Proactively check mic permission on component mount and check if first-time user
   useEffect(() => {
     requestPermission();
+    
+    // Check if user has seen WaveListener info before (SG-ST-15)
+    const hasSeenInfo = localStorage.getItem('wavelistener-info-seen');
+    if (!hasSeenInfo) {
+      setIsFirstTimeUser(true);
+    }
   }, [requestPermission]);
 
   const handleToggleReady = useCallback(async () => {
@@ -31,25 +48,21 @@ export function LeaderReadyControl({ 'data-testid': testId }: LeaderReadyControl
 
     const newReadyState = !group.isReady;
     
-    // SG-ST-03: Require mic permission before marking Ready=true
+    // SG-ST-03: Require mic permission before marking Ready=true with enhanced modal flow
     if (newReadyState && !hasPermission) {
-      console.log('Permission required to mark ready - requesting...');
-      setIsRequestingPermission(true);
-      try {
-        await requestPermission();
-        if (!hasPermission) {
-          console.log('Permission denied - cannot mark ready');
-          setIsRequestingPermission(false);
-          return;
-        }
-      } catch (error) {
-        console.error('Permission request failed:', error);
-        setIsRequestingPermission(false);
+      // SG-ST-01: Show explanation modal first if first-time user
+      if (isFirstTimeUser) {
+        setShowInfoModal(true);
         return;
       }
-      setIsRequestingPermission(false);
+      
+      // Show permission request modal for returning users
+      setPermissionModalStage('explanation');
+      setShowPermissionModal(true);
+      return;
     }
 
+    // If already has permission or marking not ready, proceed directly
     setIsLoading(true);
     
     try {
@@ -65,20 +78,66 @@ export function LeaderReadyControl({ 'data-testid': testId }: LeaderReadyControl
     } finally {
       setIsLoading(false);
     }
-  }, [session?.id, group?.id, group?.isReady, student?.id, setGroupReadiness, hasPermission, requestPermission]);
+  }, [session?.id, group?.id, group?.isReady, student?.id, setGroupReadiness, hasPermission, isFirstTimeUser]);
 
-  // Handle permission request from UI
+  // Enhanced permission request with progress indicators (SG-ST-06, SG-ST-08)
   const handleRequestPermission = useCallback(async () => {
     setIsRequestingPermission(true);
+    setShowProgress(true);
+    setProgressStep('requesting');
+    
     try {
       await requestPermission();
-      console.log('Permission request completed');
+      setProgressStep('processing');
+      
+      // Small delay to show processing state
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      if (hasPermission) {
+        setProgressStep('ready');
+        setPermissionModalStage('success');
+        
+        // Auto-close progress after success
+        setTimeout(() => {
+          setShowProgress(false);
+        }, 1500);
+      } else {
+        setProgressStep('error');
+        setPermissionModalStage('denied');
+        setShowProgress(false);
+      }
     } catch (error) {
       console.error('Permission request failed:', error);
+      setProgressStep('error');
+      setPermissionModalStage('denied');
+      setShowProgress(false);
     } finally {
       setIsRequestingPermission(false);
     }
-  }, [requestPermission]);
+  }, [requestPermission, hasPermission]);
+
+  // Handle modal interactions
+  const handleClosePermissionModal = useCallback(() => {
+    setShowPermissionModal(false);
+    setShowProgress(false);
+    setPermissionModalStage('explanation');
+  }, []);
+
+  const handleCloseInfoModal = useCallback(() => {
+    setShowInfoModal(false);
+    setIsFirstTimeUser(false);
+    localStorage.setItem('wavelistener-info-seen', 'true');
+    
+    // After first-time info, still need to check permission
+    if (!hasPermission) {
+      setPermissionModalStage('explanation');
+      setShowPermissionModal(true);
+    }
+  }, [hasPermission]);
+
+  const handleShowInfo = useCallback(() => {
+    setShowInfoModal(true);
+  }, []);
 
   // Only show for leaders - after all hooks
   if (!group?.isLeader) {
@@ -155,22 +214,36 @@ export function LeaderReadyControl({ 'data-testid': testId }: LeaderReadyControl
       className={`p-4 rounded-lg border-2 transition-all ${status.bgColor} ${status.borderColor}`}
       data-testid={testId}
     >
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <Crown className="h-6 w-6 text-amber-600" />
-        <div>
-          <h3 className="font-semibold text-gray-900">Group Leader</h3>
-          <p className="text-sm text-gray-600">You are the leader of {group?.name}</p>
+      {/* Header with help icon (SG-ST-16) */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <Crown className="h-6 w-6 text-amber-600" />
+          <div>
+            <h3 className="font-semibold text-gray-900">Group Leader</h3>
+            <p className="text-sm text-gray-600">You are the leader of {group?.name}</p>
+          </div>
         </div>
+        <WaveListenerHelpIcon onClick={handleShowInfo} />
       </div>
 
-      {/* Status Display */}
-      <div className="flex items-center gap-3 mb-4">
-        <StatusIcon className={`h-5 w-5 ${status.color}`} />
-        <div>
-          <p className={`font-medium ${status.color}`}>{status.label}</p>
-          <p className="text-sm text-gray-600">{status.description}</p>
+      {/* Status Display with optional progress indicator (SG-ST-08) */}
+      <div className="mb-4">
+        <div className="flex items-center gap-3 mb-2">
+          <StatusIcon className={`h-5 w-5 ${status.color}`} />
+          <div>
+            <p className={`font-medium ${status.color}`}>{status.label}</p>
+            <p className="text-sm text-gray-600">{status.description}</p>
+          </div>
         </div>
+        
+        {showProgress && (
+          <div className="mt-3 p-3 bg-white/50 rounded border">
+            <PermissionProgress 
+              currentStep={progressStep} 
+              error={permissionError || undefined}
+            />
+          </div>
+        )}
       </div>
 
       {/* Permission Status */}
@@ -221,6 +294,22 @@ export function LeaderReadyControl({ 'data-testid': testId }: LeaderReadyControl
           </p>
         </div>
       )}
+      
+      {/* Enhanced Modal System (SG-ST-01, SG-ST-04, SG-ST-05, SG-ST-15, SG-ST-16) */}
+      <PermissionRequestModal
+        isOpen={showPermissionModal}
+        onClose={handleClosePermissionModal}
+        onRequestPermission={handleRequestPermission}
+        isRequestingPermission={isRequestingPermission}
+        permissionError={permissionError}
+        stage={permissionModalStage}
+      />
+      
+      <WaveListenerInfoModal
+        isOpen={showInfoModal}
+        onClose={handleCloseInfoModal}
+        mode={isFirstTimeUser ? 'first-time' : 'help'}
+      />
     </div>
   );
 }
