@@ -12,6 +12,7 @@ import { LeaderReadyControl } from '@/components/LeaderReadyControl'
 import { CountdownOverlay, WaveListenerStatus } from '@/components/CountdownOverlay'
 import { WaveListenerControls, WaveListenerToggle } from '@/components/WaveListenerControls'
 import { RejoinSessionModal } from '@/components/RejoinSessionModal'
+import { WaveListenerHints } from '@/components/WaveListenerHints'
 import { useSessionPersistence } from '@/hooks/use-session-persistence'
 
 interface SessionPageProps {
@@ -215,9 +216,17 @@ export default function SessionPage({ params }: SessionPageProps) {
         <div className="flex flex-col items-center">
           <Users className="h-16 w-16 text-gray-400 mb-4" />
           <h2 className="text-2xl font-bold text-gray-800">WaveListener</h2>
-          <p className="text-gray-600 mb-8">
+          <p className="text-gray-600 mb-4">
             AI-powered audio assistant that starts automatically when the session begins.
           </p>
+          
+          {/* Helpful Hints for WaveListener Usage (SG-UX-03) */}
+          <WaveListenerHints
+            variant="tips-only"
+            isRecording={isAutoRecording || !!autoStartError}
+            permissionStatus={hasPermission ? 'granted' : 'prompt'}
+            className="mb-4"
+          />
         
           {/* Auto-start WaveListener or Manual Toggle */}
           {session?.status === 'active' && group?.isReady ? (
